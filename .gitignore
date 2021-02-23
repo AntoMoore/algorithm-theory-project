@@ -1,6 +1,7 @@
 # local executables
 bitoperations
 commands
+funcs
 
 # Prerequisites
 *.d
