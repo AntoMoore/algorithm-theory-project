@@ -2,6 +2,8 @@
 bitoperations
 commands
 funcs
+emptyexec
+preproc
 
 # Prerequisites
 *.d
