@@ -1,23 +1,29 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-// local macros
+// local macros (preprocess directives)
 #define W 32
 #define WORD uint32_t
 #define PF PRIX32
 #define BYTE uint8_t
 
+// SHA256 works on blocks of 512 bits
 union Block {
+    // 8 x 64 = 512 (block of Bytes)
     BYTE bytes[64];
+    // 32 x 16 = 512 (block of words)
     WORD words[16];
+    // 64 x 8 = 512 (last 64 bits of last block)
     uint64_t sixf[8];
 };
 
+// keeping track of input message/padding
 enum Status{
     READ, PAD, END
 };
 
-// get the next block
+// returns 1 if it created a new block - origional message or padding
+// returns 0 if all padded message has already been consumed
 int next_block(FILE *f, union Block *B, enum Status *S, uint64_t *numBits){
     
     // number of bytes read
@@ -32,21 +38,22 @@ int next_block(FILE *f, union Block *B, enum Status *S, uint64_t *numBits){
         numBytes = fread(B->bytes, 1, 64, f);
 
         // update number of bits read
-        *numBits += (8 * numBytes);
+        *numBits = *numBits + (8 * numBytes);
 
         if(numBytes == 64){
             return 1;
 
-        } else if(numBytes <= 55) {
+        } else if(numBytes < 56) {
             // enough room for padding 64 bytes -> 55 bytes
             // append a 1 bit (and seven 0 bits to make a full byte)
-            B->bytes[numBytes++] == 0x80; // in bits : 1000000
-            while(numBytes++ < 56) {
+            B->bytes[numBytes] = 0x80; // in bits : 10000000
+            for (numBytes++; numBytes < 56; numBytes++) {
                 // append enough 0 bits, leaving 64 at the end
-                B->bytes[numBytes] == 0x00; // in bits : 0000000
+                B->bytes[numBytes] = 0x00; // in bits : 00000000
             }
 
             // append length of original input
+            // check ENDIANESS
             B->sixf[7] = *numBits;
 
             // set status as the last block
@@ -56,27 +63,28 @@ int next_block(FILE *f, union Block *B, enum Status *S, uint64_t *numBits){
             // got to end of input message
             // not enough room in this block for padding
             // append a 1 bit (and seven 0 bits to make a full byte)
-            B->bytes[numBytes] == 0x80; // in bits : 1000000
+            B->bytes[numBytes] = 0x80; // in bits : 10000000
             // append 0 bits
-            while(numBytes++ < 64) {
+            for (numBytes++; numBytes < 64; numBytes++) {
                 // append enough 0 bits, leaving 64 at the end
-                B->bytes[numBytes] == 0x00; // in bits : 0000000
+                B->bytes[numBytes] = 0x00; // in bits : 00000000
             }
 
             // set status to PAD
             *S = PAD;
         }
     } else if (*S == PAD) {
-        numBytes = 0;
-        while(numBytes++ < 56) {
+        // append 0 bits
+        for (numBytes = 0; numBytes < 56; numBytes++) {
             // append enough 0 bits, leaving 64 at the end
-            B->bytes[numBytes] == 0x00; // in bits : 0000000
+            B->bytes[numBytes] = 0x00; // in bits : 0000000
         }
 
         // append numBits as an integer
+        // check ENDIAN
         B->sixf[7] = *numBits;
 
-        // set status to PAD
+        // set status to END
         *S = END;
     }
     
@@ -84,6 +92,10 @@ int next_block(FILE *f, union Block *B, enum Status *S, uint64_t *numBits){
 };
 
 int main(int argc, char *argv[]){
+
+    // iterator
+    int i;
+
     // The current block
     union Block B;
 
@@ -106,7 +118,7 @@ int main(int argc, char *argv[]){
     while(next_block(f, &B, &S, &numBits))
     {
         // print the 16 32-bit words to the console
-        for(int i = 0; i < 16; i++){
+        for(i = 0; i < 16; i++){
             printf("%08" PF " ", B.words[i]);
         } 
         printf("\n");

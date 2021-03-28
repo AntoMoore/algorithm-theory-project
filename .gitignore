@@ -4,6 +4,7 @@ commands
 funcs
 emptyexec
 preproc
+sha256
 
 # Prerequisites
 *.d
