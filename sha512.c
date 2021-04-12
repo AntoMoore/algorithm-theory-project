@@ -13,7 +13,7 @@ const int _i = 1;
 
 // Page 5 of secure hash standard
 #define ROTL(x,n) ((x<<n)|(x>>((sizeof(x)*8)-n))) // rotate left
-#define ROTR(x,n) ((x>>n)|(x>>((sizeof(x)*8)-n))) // rotate right
+#define ROTR(x,n) ((x>>n)|(x<<((sizeof(x)*8)-n))) // rotate right
 #define SHR(x,n) (x>>n) // shift right
 
 // Page 11 of secure hash standard
@@ -22,6 +22,7 @@ const int _i = 1;
 
 #define SIG0(x) (ROTR(x,28)^ROTR(x,34)^ROTR(x,39)) // scramble 
 #define SIG1(x) (ROTR(x,14)^ROTR(x,18)^ROTR(x,41)) // scramble
+
 #define Sig0(x) (ROTR(x,1)^ROTR(x,8)^SHR(x,7)) // scramble 
 #define Sig1(x) (ROTR(x,19)^ROTR(x,61)^SHR(x,6)) // scramble 
 
@@ -87,11 +88,11 @@ int next_block(FILE *f, union Block *M, enum Status *S, uint64_t *numBits){
 
         if(numBytes == 128){
             //do nothing
-        } else if(numBytes < 112) {
-            // enough room for padding 128 bytes -> 111 bytes
+        } else if(numBytes < 120) {
+            // enough room for padding 128 bytes -> 120 bytes
             // append a 1 bit (and seven 0 bits to make a full byte)
             M->bytes[numBytes] = 0x80; // in bits : 10000000
-            for (numBytes++; numBytes < 112; numBytes++) {
+            for (numBytes++; numBytes < 120; numBytes++) {
                 // append enough 0 bits, leaving 128 at the end
                 M->bytes[numBytes] = 0x00; // in bits : 00000000
             }
@@ -106,7 +107,7 @@ int next_block(FILE *f, union Block *M, enum Status *S, uint64_t *numBits){
         } else {
             // got to end of input message
             // not enough room in this block for padding
-            // append a 1 bit (and seven 0 bits to make a full byte)
+            // append a 1 bit
             M->bytes[numBytes] = 0x80; // in bits : 10000000
             // append 0 bits
             for (numBytes++; numBytes < 128; numBytes++) {
@@ -119,8 +120,8 @@ int next_block(FILE *f, union Block *M, enum Status *S, uint64_t *numBits){
         }
     } else if (*S == PAD) {
         // append 0 bits
-        for (numBytes = 0; numBytes < 128; numBytes++) {
-            // append enough 0 bits, leaving 128 at the end
+        for (numBytes = 0; numBytes < 120; numBytes++) {
+            // append enough 0 bits
             M->bytes[numBytes] = 0x00; // in bits : 0000000
         }
 
@@ -136,7 +137,7 @@ int next_block(FILE *f, union Block *M, enum Status *S, uint64_t *numBits){
     if(is_lilend()){
         for(int i = 0; i < 16; i++){
             // NB - might need to change
-            M->words[i] = bswap_32(M->words[i]);
+            M->words[i] = bswap_64(M->words[i]);
         }
     }
     return 1;
