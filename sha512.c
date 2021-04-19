@@ -4,7 +4,7 @@
 
 // Endianess RE: https://developer.ibm.com/technologies/systems/articles/au-endianc/
 const int _i = 1;
-#define is_lilend() ((*(char*)&_i) != 0)
+#define is_lilend() ((*(char *)&_i) != 0)
 
 // local macros (preprocess directives)
 #define WORD uint64_t
@@ -12,22 +12,23 @@ const int _i = 1;
 #define BYTE uint8_t
 
 // Page 5 of secure hash standard
-#define ROTL(x,n) ((x<<n)|(x>>((sizeof(x)*8)-n))) // rotate left
-#define ROTR(x,n) ((x>>n)|(x<<((sizeof(x)*8)-n))) // rotate right
-#define SHR(x,n) (x>>n) // shift right
+#define ROTL(x, n) ((x << n) | (x >> ((sizeof(x) * 8) - n))) // rotate left
+#define ROTR(x, n) ((x >> n) | (x << ((sizeof(x) * 8) - n))) // rotate right
+#define SHR(x, n) (x >> n)                                   // shift right
 
 // Page 11 of secure hash standard
-#define CH(x,y,z) ((x&y)^(~x&z)) // choose bits
-#define MAJ(x,y,z) ((x&y)^(x&z)^(y&z)) // get majority vote
+#define CH(x, y, z) ((x & y) ^ (~x & z))           // choose bits
+#define MAJ(x, y, z) ((x & y) ^ (x & z) ^ (y & z)) // get majority vote
 
-#define SIG0(x) (ROTR(x,28)^ROTR(x,34)^ROTR(x,39)) // scramble 
-#define SIG1(x) (ROTR(x,14)^ROTR(x,18)^ROTR(x,41)) // scramble
+#define SIG0(x) (ROTR(x, 28) ^ ROTR(x, 34) ^ ROTR(x, 39)) // scramble
+#define SIG1(x) (ROTR(x, 14) ^ ROTR(x, 18) ^ ROTR(x, 41)) // scramble
 
-#define Sig0(x) (ROTR(x,1)^ROTR(x,8)^SHR(x,7)) // scramble 
-#define Sig1(x) (ROTR(x,19)^ROTR(x,61)^SHR(x,6)) // scramble 
+#define Sig0(x) (ROTR(x, 1) ^ ROTR(x, 8) ^ SHR(x, 7))   // scramble
+#define Sig1(x) (ROTR(x, 19) ^ ROTR(x, 61) ^ SHR(x, 6)) // scramble
 
 // SHA512 works on blocks of 1024 bits
-union Block {
+union Block
+{
     // 8 x 128 = 1024 (block of Bytes)
     BYTE bytes[128];
     // 16 x 64 = 1024 (block of words)
@@ -37,8 +38,11 @@ union Block {
 };
 
 // keeping track of input message/padding
-enum Status{
-    READ, PAD, END
+enum Status
+{
+    READ,
+    PAD,
+    END
 };
 
 // Constants section 4.2.3
@@ -63,36 +67,41 @@ const WORD K[] = {
     0xca273eceea26619c, 0xd186b8c721c0c207, 0xeada7dd6cde0eb1e, 0xf57d4f7fee6ed178,
     0x06f067aa72176fba, 0x0a637dc5a2c898a6, 0x113f9804bef90dae, 0x1b710b35131c471b,
     0x28db77f523047d84, 0x32caab7b40c72493, 0x3c9ebe0a15c9bebc, 0x431d67c49c100d4c,
-    0x4cc5d4becb3e42b6, 0x597f299cfc657e2a, 0x5fcb6fab3ad6faec, 0x6c44198c4a475817
-};
-
+    0x4cc5d4becb3e42b6, 0x597f299cfc657e2a, 0x5fcb6fab3ad6faec, 0x6c44198c4a475817};
 
 // returns 1 if it created a new block - origional message or padding
 // returns 0 if all padded message has already been consumed
-int next_block(FILE *f, union Block *M, enum Status *S, uint64_t *numBits){
-    
+int next_block(FILE *f, union Block *M, enum Status *S, uint64_t *numBits)
+{
+
     // number of bytes read
     size_t numBytes;
 
     // stop if status is END
-    if (*S == END) {
+    if (*S == END)
+    {
         //finish
         return 0;
-
-    } else if (*S == READ) {
+    }
+    else if (*S == READ)
+    {
         // try to read another 128 bytes from file
         numBytes = fread(M->bytes, 1, 128, f);
 
         // update number of bits read
         *numBits = *numBits + (8 * numBytes);
 
-        if(numBytes == 128){
+        if (numBytes == 128)
+        {
             //do nothing
-        } else if(numBytes < 120) {
+        }
+        else if (numBytes < 120)
+        {
             // enough room for padding 128 bytes -> 120 bytes
             // append a 1 bit (and seven 0 bits to make a full byte)
             M->bytes[numBytes] = 0x80; // in bits : 10000000
-            for (numBytes++; numBytes < 120; numBytes++) {
+            for (numBytes++; numBytes < 120; numBytes++)
+            {
                 // append enough 0 bits, leaving 128 at the end
                 M->bytes[numBytes] = 0x00; // in bits : 00000000
             }
@@ -103,14 +112,16 @@ int next_block(FILE *f, union Block *M, enum Status *S, uint64_t *numBits){
 
             // set status as the last block
             *S = END;
-            
-        } else {
+        }
+        else
+        {
             // got to end of input message
             // not enough room in this block for padding
             // append a 1 bit
             M->bytes[numBytes] = 0x80; // in bits : 10000000
             // append 0 bits
-            for (numBytes++; numBytes < 128; numBytes++) {
+            for (numBytes++; numBytes < 128; numBytes++)
+            {
                 // append enough 0 bits, leaving 128 at the end
                 M->bytes[numBytes] = 0x00; // in bits : 00000000
             }
@@ -118,9 +129,12 @@ int next_block(FILE *f, union Block *M, enum Status *S, uint64_t *numBits){
             // set status to PAD
             *S = PAD;
         }
-    } else if (*S == PAD) {
+    }
+    else if (*S == PAD)
+    {
         // append 0 bits
-        for (numBytes = 0; numBytes < 120; numBytes++) {
+        for (numBytes = 0; numBytes < 120; numBytes++)
+        {
             // append enough 0 bits
             M->bytes[numBytes] = 0x00; // in bits : 0000000
         }
@@ -132,10 +146,12 @@ int next_block(FILE *f, union Block *M, enum Status *S, uint64_t *numBits){
         // set status to END
         *S = END;
     }
-    
+
     // if little Endian, reverse the byte order of words
-    if(is_lilend()){
-        for(int i = 0; i < 16; i++){
+    if (is_lilend())
+    {
+        for (int i = 0; i < 16; i++)
+        {
             // NB - might need to change
             M->words[i] = bswap_64(M->words[i]);
         }
@@ -143,7 +159,8 @@ int next_block(FILE *f, union Block *M, enum Status *S, uint64_t *numBits){
     return 1;
 };
 
-int next_hash(union Block *M, WORD H[]){
+int next_hash(union Block *M, WORD H[])
+{
     // message schedule
     WORD W[80];
 
@@ -151,17 +168,19 @@ int next_hash(union Block *M, WORD H[]){
     int t;
 
     // temp variables
-    WORD a, b, c, d, e ,f, g, h, T1, T2;
+    WORD a, b, c, d, e, f, g, h, T1, T2;
 
     // section 6.4.2 (part1)
     // values 0 to 15
-    for (t = 0; t < 16; t++){
+    for (t = 0; t < 16; t++)
+    {
         W[t] = M->words[t];
     }
 
     // values 16 to 79
-    for (t = 16; t < 80; t++){
-        W[t] = Sig1(W[t-2]) + W[t-7] + Sig0(W[t-15]) + W[t-16];
+    for (t = 16; t < 80; t++)
+    {
+        W[t] = Sig1(W[t - 2]) + W[t - 7] + Sig0(W[t - 15]) + W[t - 16];
     }
 
     // section 6.4.2 (part2)
@@ -175,7 +194,8 @@ int next_hash(union Block *M, WORD H[]){
     h = H[7];
 
     // section 6.4.2 (part3)
-    for (t = 0; t < 80; t++){
+    for (t = 0; t < 80; t++)
+    {
         T1 = h + SIG1(e) + CH(e, f, g) + K[t] + W[t];
         T2 = SIG0(a) + MAJ(a, b, c);
         h = g;
@@ -199,8 +219,9 @@ int next_hash(union Block *M, WORD H[]){
     H[7] = h + H[7];
 }
 
-int sha512(FILE *f, WORD H[]){
-    
+int sha512(FILE *f, WORD H[])
+{
+
     // The current block
     union Block M;
 
@@ -212,45 +233,63 @@ int sha512(FILE *f, WORD H[]){
 
     // function that performs the SHA256 algorithm on the message f
     // keep reading preprocessed blocks until empty
-    while(next_block(f, &M, &S, &numBits)){
-       next_hash(&M, H);
+    while (next_block(f, &M, &S, &numBits))
+    {
+        next_hash(&M, H);
     }
 
     return 0;
 }
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[])
+{
     // section 5.3.5
     // initial has values
     WORD H[] = {
         0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1,
-        0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179
-    };
+        0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179};
 
+    // check commandline arguments
+    // argc is number of arguments including,
+    // the name of the program.
+    // argc should be 2 for correct execution
+    if (argc != 2)
+    {
 
-    // file pointer
-    FILE *f;
-
-    // TO-DO.......
-    // NB - do error checking on file opening
-    // open file from command line for reading
-
-    // read file
-    f = fopen(argv[1], "r");
-
-    // calculate the sha512 of FILE f
-    sha512(f, H);
-
-    // print final SHA512 hash
-    for (int i = 0; i < 8; i++){
-        printf("%016" PF, H[i]);
+        // show user the correct command to run application
+        printf("Run Application: %s ./filename \n", argv[0]);
     }
-    printf("\n");
+    else
+    {
+        // file pointer
+        FILE *f;
 
-    // close file
-    fclose(f);
-    
+        // read file
+        f = fopen(argv[1], "r");
+
+        // error checking on file opening
+        // open file from command line for reading
+        // fopen returns 0 if null
+        if (f == 0)
+        {
+            printf("Error: File Not Found!\n");
+        }
+        else
+        {
+            // calculate the sha512 of FILE f
+            sha512(f, H);
+
+            // print final SHA512 hash
+            for (int i = 0; i < 8; i++)
+            {
+                printf("%016" PF, H[i]);
+            }
+            printf("\n");
+
+            // close file
+            fclose(f);
+        }
+    }
+
     return 0;
 }
-
-
