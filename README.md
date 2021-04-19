@@ -1,5 +1,46 @@
 # algorithm-theory-project
 
+## Description
+- Explain contents of repo
+- what is sha512
+- how does it work
+
+## Getting Started
+
+Installing GCC on Linux:
+
+```python
+$ sudo apt update
+$ sudo apt install build-essential
+```
+
+Verify that the GCC compiler is installed correctly:
+```python
+$ gcc --version
+```
+
+Compiling The Program:
+```python
+$ make sha512
+```
+
+Running the Application:
+```python
+$ ./sha512 ./filename
+```
+
+Testing:
+- tbc
+
+## Questions
+- Why cant we reverse the SHA512 algorithm to retrieve the original message from a hash digest?
+
+- Can you design an algorithim, that given enough time, will find input messages that give each
+  of the possible 512-bit strings?
+
+- How difficult is it to find a hash digest beginning with at least twelve zeros?
+
+
 | Decimal | Hex | Binary |
 |---------|-----|--------|
 |       0 |   0 |   0000 |
